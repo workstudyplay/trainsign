@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+# Display a runtext with double-buffering.
+import os
+import sys
+import time
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.base import SampleBase
+from core.matrix import import_matrix
+
+_, _, graphics = import_matrix()
+
+# Asset paths
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), "../../assets")
+
+class RunText(SampleBase):
+    def __init__(self, *args, **kwargs):
+        super(RunText, self).__init__(*args, **kwargs)
+        self.parser.add_argument("-t", "--text", help="The text to scroll on the RGB LED panel", default="GAEL BOYD")
+
+    def run(self):
+        offscreen_canvas = self.matrix.CreateFrameCanvas()
+        font = graphics.Font()
+        font.LoadFont(os.path.join(ASSETS_DIR, "fonts/10x20.bdf"))
+        textColor = graphics.Color(255, 0, 0)
+        pos = offscreen_canvas.width
+        my_text = "1   2   3   4   5   6   7   8   9   10    A    B    C    D    E    F    G"
+
+        while True:
+            offscreen_canvas.Clear()
+            len = graphics.DrawText(offscreen_canvas, font, pos, 20, textColor, my_text)
+            pos -= 1
+            if (pos + len < 0):
+                pos = offscreen_canvas.width
+
+            time.sleep(0.05)
+            offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+
+
+# Main function
+if __name__ == "__main__":
+    run_text = RunText()
+    if (not run_text.process()):
+        run_text.print_help()

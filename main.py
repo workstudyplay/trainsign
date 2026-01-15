@@ -3,10 +3,10 @@
 main_controller.py
 
 Cycles between these scripts for 10 seconds each:
-  - pong.py
-  - mario.py
-  - invaders.py
-  - panel.py
+  - games/pong.py
+  - games/mario.py
+  - games/invaders.py
+  - transit/panel.py
 
 Notes:
 - Runs each as a subprocess and terminates it after the time slice.
@@ -14,8 +14,8 @@ Notes:
 - If a script exits early, controller moves to the next one.
 
 Usage:
-  python3 main_controller.py
-  python3 main_controller.py --seconds 10 --order pong.py mario.py invaders.py panel.py
+  python3 main.py
+  python3 main.py --seconds 10 --order games/pong.py games/mario.py transit/panel.py
 """
 
 import argparse
@@ -103,8 +103,8 @@ def main():
     parser.add_argument(
         "--order",
         nargs="*",
-        default=["pong.py", "mario.py", "invaders.py", "panel.py"],
-        help="Script filenames in the cycle order",
+        default=["games/pong.py", "games/invaders.py", "transit/panel.py", "animations/chicken.py"],
+        help="Script filenames in the cycle order (relative to src/)",
     )
     parser.add_argument(
         "--pass-args",
@@ -112,16 +112,19 @@ def main():
         default=[],
         help="Args passed to each child script after '--pass-args' (e.g. --pass-args --width 128 --height 32)",
     )
-    parser.add_argument("--loop", action="store_true", help="Loop forever (default runs one full cycle)")
+    parser.add_argument("--loop", default=True, action="store_true", help="Loop forever (default runs one full cycle)")
     args = parser.parse_args()
 
     scripts = args.order
     per = max(0.5, float(args.seconds))
     child_args = args.pass_args
 
-    # Resolve scripts relative to current working dir
-    scripts = [os.path.join(os.getcwd(), s) if not os.path.isabs(s) else s for s in scripts]
-
+    # Resolve scripts relative to src/ directory (where main.py is located)
+    src_dir = os.path.dirname(os.path.abspath(__file__))
+    scripts = [os.path.join(src_dir, s) if not os.path.isabs(s) else s for s in scripts]
+    if True:
+        "transit/panel.py"
+        
     while True:
         for s in scripts:
             run_script_for(s, per, child_args)
@@ -129,7 +132,6 @@ def main():
             break
 
     print("[controller] done")
-
 
 if __name__ == "__main__":
     main()
