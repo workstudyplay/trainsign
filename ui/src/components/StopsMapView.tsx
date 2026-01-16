@@ -138,8 +138,8 @@ export default function StopsMapView({
 
   return (
     <div className="space-y-3">
-      {/* Control bar */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Control bar - matches list view height */}
+      <div className="flex items-center justify-between gap-2 min-h-[32px]">
         <div className="flex items-center gap-2">
           {isManualOverride && (
             <button
@@ -164,8 +164,8 @@ export default function StopsMapView({
         )}
       </div>
 
-      {/* Map container - taller for better visibility */}
-      <div className="h-80 sm:h-96 rounded-lg overflow-hidden border border-gray-600">
+      {/* Map container - fixed height to match list view */}
+      <div className="h-80 sm:h-96 rounded-lg overflow-hidden border border-gray-600 transition-all duration-300">
         <MapContainer
           center={mapCenter}
           zoom={DEFAULT_ZOOM}

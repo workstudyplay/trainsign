@@ -307,7 +307,7 @@ class DataBuffers:
                 text=dest_text,
                 route_id=a.route_id,
                 status=status,
-                time=a.when.astimezone().strftime("%H:%M"),
+                time=a.when.astimezone().strftime("%I:%M %p").lstrip("0"),
                 color=Color(50, 50, 50),
             )
 
