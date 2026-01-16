@@ -1,4 +1,28 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* Leaflet popup styling for dark theme */
+.leaflet-popup-content-wrapper {
+  background: #374151;
+  color: white;
+  border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+  background: #374151;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: #9ca3af;
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: white;
+}
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
