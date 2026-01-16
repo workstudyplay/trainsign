@@ -6,8 +6,8 @@
 
     "compounds": [
         {
-            "name": "Dev: npm run dev + Chrome",
-            "configurations": ["Launch Chrome against localhost"],
+            "name": "UI",
+            "configurations": ["Chrome"],
             "preLaunchTask": "npm: dev",
             "stopAll": true
         }
@@ -16,12 +16,12 @@
         {
             "type": "chrome",
             "request": "launch",
-            "name": "Launch Chrome against localhost",
+            "name": "Chrome",
             "url": "http://localhost:5173",
             "webRoot": "${workspaceFolder}/ui"
         },
         {
-            "name": "Python: Main Server",
+            "name": "Server",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
