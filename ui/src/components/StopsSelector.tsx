@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { MapPin, X, Loader2, List, Map } from 'lucide-react';
+import { MapPin, X, Loader2, List, Map, Train, Bus } from 'lucide-react';
 import { Stop } from '../types';
 import { useStops } from '../hooks/useStops';
 import { useLocation } from '../hooks/useLocation';
@@ -27,6 +27,17 @@ export default function StopsSelector() {
   } = useLocation();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [showTrains, setShowTrains] = useState(true);
+  const [showBuses, setShowBuses] = useState(false);
+
+  // Filter stops by transit type
+  const filteredStops = useMemo(() => {
+    return stops.filter((stop) => {
+      if (stop.type === 'train' && showTrains) return true;
+      if (stop.type === 'bus' && showBuses) return true;
+      return false;
+    });
+  }, [stops, showTrains, showBuses]);
 
   const selectedStops = useMemo(() => {
     return selectedStopIds
@@ -108,14 +119,14 @@ export default function StopsSelector() {
       {/* View content */}
       {viewMode === 'list' ? (
         <StopsListView
-          stops={stops}
+          stops={filteredStops}
           selectedStopIds={selectedStopIds}
           onToggleStop={toggleStop}
           location={effectiveLocation}
         />
       ) : (
         <StopsMapView
-          stops={stops}
+          stops={filteredStops}
           selectedStopIds={selectedStopIds}
           onToggleStop={toggleStop}
           location={effectiveLocation}
@@ -125,6 +136,31 @@ export default function StopsSelector() {
           onClearManualLocation={clearManualLocation}
         />
       )}
+
+      {/* Transit type filter checkboxes */}
+      <div className="flex items-center gap-4 mt-3 sm:mt-4 py-2 border-t border-gray-700">
+        <span className="text-sm text-gray-400">Show:</span>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showTrains}
+            onChange={(e) => setShowTrains(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-gray-800"
+          />
+          <Train size={16} className="text-purple-400" />
+          <span className="text-sm text-white">Trains</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showBuses}
+            onChange={(e) => setShowBuses(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+          />
+          <Bus size={16} className="text-blue-400" />
+          <span className="text-sm text-white">Buses</span>
+        </label>
+      </div>
 
       {/* Selected stations */}
       {selectedStops.length > 0 && (

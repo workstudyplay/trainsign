@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Check } from 'lucide-react';
+import { Search, Check, Train, Bus } from 'lucide-react';
 import { Stop, UserLocation } from '../types';
 import { sortStopsByDistance, formatDistance } from '../utils/geo';
 
@@ -53,35 +53,47 @@ export default function StopsListView({
 
       {isOpen && (
         <div className="bg-gray-700 rounded-lg max-h-64 overflow-y-auto mb-3 sm:mb-4">
-          {filteredStops.slice(0, 50).map((stop) => (
-            <div
-              key={stop.stop_id}
-              onClick={() => onToggleStop(stop.stop_id)}
-              className={`flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-600 border-b border-gray-600 last:border-0 ${
-                selectedStopIds.includes(stop.stop_id) ? 'bg-purple-900/30' : ''
-              }`}
-            >
-              <div>
-                <div className="text-white text-sm sm:text-base">
-                  {stop.stop_name}
-                  <span className="ml-2 text-xs text-gray-400">
-                    ({stop.stop_id.slice(-1)})
-                  </span>
-                </div>
-                <div className="text-xs sm:text-sm text-gray-400">
-                  {stop.line} line · {stop.direction}
-                  {stop.distance !== undefined && (
-                    <span className="ml-2 text-purple-400">
-                      {formatDistance(stop.distance)}
-                    </span>
+          {filteredStops.slice(0, 50).map((stop) => {
+            const isBus = stop.type === 'bus';
+            const isSelected = selectedStopIds.includes(stop.stop_id);
+
+            return (
+              <div
+                key={stop.stop_id}
+                onClick={() => onToggleStop(stop.stop_id)}
+                className={`flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-600 border-b border-gray-600 last:border-0 ${
+                  isSelected ? (isBus ? 'bg-blue-900/30' : 'bg-purple-900/30') : ''
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {isBus ? (
+                    <Bus size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <Train size={16} className="text-purple-400 mt-0.5 flex-shrink-0" />
                   )}
+                  <div>
+                    <div className="text-white text-sm sm:text-base">
+                      {stop.stop_name}
+                      <span className="ml-2 text-xs text-gray-400">
+                        ({stop.stop_id.slice(-1)})
+                      </span>
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-400">
+                      {isBus ? 'Bus stop' : `${stop.line} line`}{stop.direction && ` · ${stop.direction}`}
+                      {stop.distance !== undefined && (
+                        <span className={`ml-2 ${isBus ? 'text-blue-400' : 'text-purple-400'}`}>
+                          {formatDistance(stop.distance)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                {isSelected && (
+                  <Check size={18} className={`flex-shrink-0 ${isBus ? 'text-blue-400' : 'text-purple-400'}`} />
+                )}
               </div>
-              {selectedStopIds.includes(stop.stop_id) && (
-                <Check size={18} className="text-purple-400 flex-shrink-0" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>

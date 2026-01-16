@@ -94,9 +94,9 @@ export default function RGBMatrixController() {
               </div>
 
               {/* Animations */}
-              <div className="mb-4">
+              {/* <div className="mb-4">
                 <AnimationsSelector onStatusChange={setStatus} />
-              </div>
+              </div> */}
             </>
           )}
         </div>

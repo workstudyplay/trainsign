@@ -1,3 +1,5 @@
+export type TransitType = 'train' | 'bus';
+
 export interface Stop {
   stop_id: string;
   stop_name: string;
@@ -6,6 +8,7 @@ export interface Stop {
   line: string;
   direction: string;
   distance?: number;
+  type: TransitType;
 }
 
 export interface UserLocation {

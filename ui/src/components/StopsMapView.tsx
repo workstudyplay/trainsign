@@ -9,31 +9,47 @@ import { formatDistance, calculateDistance } from '../utils/geo';
 const userIcon = L.divIcon({
   className: 'user-location-marker',
   html: `<div style="
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     background: #3b82f6;
     border: 3px solid white;
     border-radius: 50%;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   "></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
 });
 
-const createStationIcon = (isSelected: boolean) =>
-  L.divIcon({
+// Colors for different transit types and selection states
+const MARKER_COLORS = {
+  train: {
+    selected: { bg: '#9333ea', border: '#c084fc' },    // Purple
+    unselected: { bg: '#6b7280', border: '#9ca3af' },  // Gray
+  },
+  bus: {
+    selected: { bg: '#2563eb', border: '#60a5fa' },    // Blue
+    unselected: { bg: '#6b7280', border: '#9ca3af' },  // Gray
+  },
+};
+
+const createStationIcon = (isSelected: boolean, transitType: 'train' | 'bus' = 'train') => {
+  const colors = MARKER_COLORS[transitType] || MARKER_COLORS.train;
+  const colorSet = isSelected ? colors.selected : colors.unselected;
+
+  return L.divIcon({
     className: 'station-marker',
     html: `<div style="
-      width: 14px;
-      height: 14px;
-      background: ${isSelected ? '#9333ea' : '#6b7280'};
-      border: 2px solid ${isSelected ? '#c084fc' : '#9ca3af'};
+      width: 18px;
+      height: 18px;
+      background: ${colorSet.bg};
+      border: 2px solid ${colorSet.border};
       border-radius: 50%;
       box-shadow: 0 1px 4px rgba(0,0,0,0.3);
     "></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
   });
+};
 
 interface StopsMapViewProps {
   stops: Stop[];
@@ -148,8 +164,8 @@ export default function StopsMapView({
         )}
       </div>
 
-      {/* Map container */}
-      <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-gray-600">
+      {/* Map container - taller for better visibility */}
+      <div className="h-80 sm:h-96 rounded-lg overflow-hidden border border-gray-600">
         <MapContainer
           center={mapCenter}
           zoom={DEFAULT_ZOOM}
@@ -176,12 +192,13 @@ export default function StopsMapView({
             const distance = location
               ? calculateDistance(location.lat, location.lon, stop.lat, stop.lon)
               : undefined;
+            const transitType = stop.type || 'train';
 
             return (
               <Marker
                 key={stop.stop_id}
                 position={[stop.lat, stop.lon]}
-                icon={createStationIcon(isSelected)}
+                icon={createStationIcon(isSelected, transitType)}
                 eventHandlers={{
                   click: () => onToggleStop(stop.stop_id),
                 }}
@@ -190,10 +207,10 @@ export default function StopsMapView({
                   <div className="min-w-[150px]">
                     <div className="font-semibold">{stop.stop_name}</div>
                     <div className="text-xs text-gray-500">
-                      {stop.line} line · {stop.direction}
+                      {transitType === 'bus' ? 'Bus stop' : stop.line + ' line'}{stop.direction && ` · ${stop.direction}`}
                     </div>
                     {distance !== undefined && (
-                      <div className="text-xs text-purple-600 mt-1">
+                      <div className={`text-xs mt-1 ${transitType === 'bus' ? 'text-blue-600' : 'text-purple-600'}`}>
                         {formatDistance(distance)}
                       </div>
                     )}
@@ -205,7 +222,9 @@ export default function StopsMapView({
                       className={`mt-2 w-full px-2 py-1 text-xs rounded ${
                         isSelected
                           ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                          : transitType === 'bus'
+                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                       }`}
                     >
                       {isSelected ? 'Deselect' : 'Select'}
