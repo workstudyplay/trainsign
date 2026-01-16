@@ -14,6 +14,11 @@ from transit.worker import load_stop_data, load_all_stops, MTAWorker, DataBuffer
 from config import load_selected_stops, save_selected_stops, load_scripts, save_scripts
 from display import DisplayRenderer
 
+# OpenTelemetry instrumentation
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from telemetry import setup_telemetry, get_tracer
+
 WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "ui", "dist")
 ASSETS_DIR = os.path.join(WEB_DIR, "assets")
 
@@ -47,34 +52,46 @@ class StopWorkersManager:
 
     def _start_worker(self, stop_id: str):
         """Start a worker for a specific stop"""
-        if stop_id in self.workers:
-            return
+        tracer = get_tracer(__name__)
+        
+        with tracer.start_as_current_span("start_worker") as span:
+            span.set_attribute("stop_id", stop_id)
+            
+            if stop_id in self.workers:
+                span.set_attribute("already_running", True)
+                return
 
-        if stop_id not in self.stops_data:
-            print(f"Stop {stop_id} not found in stops data")
-            return
+            if stop_id not in self.stops_data:
+                span.set_attribute("error", "stop_not_found")
+                print(f"Stop {stop_id} not found in stops data")
+                return
 
-        stop = self.stops_data[stop_id]
+            stop = self.stops_data[stop_id]
+            span.set_attribute("transit_type", stop.transit_type)
+            span.set_attribute("stop_name", stop.name)
 
-        # Skip bus stops for now - bus GTFS-RT feeds are not yet configured
-        if stop.transit_type == "bus":
-            print(f"Skipping worker for bus stop {stop_id} (bus feeds not yet supported)")
-            return
+            # Skip bus stops for now - bus GTFS-RT feeds are not yet configured
+            if stop.transit_type == "bus":
+                span.set_attribute("skipped", True)
+                span.set_attribute("skip_reason", "bus_feeds_not_supported")
+                print(f"Skipping worker for bus stop {stop_id} (bus feeds not yet supported)")
+                return
 
-        buffers = DataBuffers()
-        worker = MTAWorker(
-            stops=self.stops_data,
-            configured_stop_ids=[stop_id],
-            refresh_s=30.0,
-            api_key=self.api_key,
-            buffers=buffers,
-            name=f"worker-{stop_id}",
-        )
-        worker.start()
+            buffers = DataBuffers()
+            worker = MTAWorker(
+                stops=self.stops_data,
+                configured_stop_ids=[stop_id],
+                refresh_s=30.0,
+                api_key=self.api_key,
+                buffers=buffers,
+                name=f"worker-{stop_id}",
+            )
+            worker.start()
 
-        self.workers[stop_id] = worker
-        self.buffers[stop_id] = buffers
-        print(f"Started worker for stop {stop_id}")
+            self.workers[stop_id] = worker
+            self.buffers[stop_id] = buffers
+            span.set_attribute("worker_started", True)
+            print(f"Started worker for stop {stop_id}")
 
     def _stop_worker(self, stop_id: str):
         """Stop a worker for a specific stop"""
@@ -257,6 +274,13 @@ class WebAPIService:
         self.port = port
         self.app = Flask(__name__)
         CORS(self.app)
+        
+        # Initialize OpenTelemetry
+        self.tracer = setup_telemetry(service_name="trainsign-api")
+        if self.tracer:
+            FlaskInstrumentor().instrument_app(self.app)
+            RequestsInstrumentor().instrument()
+        
         self.workers_manager = StopWorkersManager(api_key=api_key)
         self.display_renderer = DisplayRenderer(display_duration=5.0)
         self._setup_routes()
@@ -355,28 +379,42 @@ class WebAPIService:
         
         @self.app.route('/api/message', methods=['POST'])
         def broadcast_message():
-            data = request.json
-            message = data.get('message', '')
-            duration = data.get('duration', 10.0)
-            print("|--- Broadcast message: -----------------------------------------|")
-            print(message)
-            print("|----------------------------------------------------------------|")
-            # Save to file
-            with open(self.controller.message_file, 'w') as f:
-                f.write(message)
+            tracer = get_tracer(__name__)
+            with tracer.start_as_current_span("broadcast_message") as span:
+                data = request.json
+                message = data.get('message', '')
+                duration = data.get('duration', 10.0)
+                
+                span.set_attribute("message_length", len(message))
+                span.set_attribute("duration", duration)
+                
+                print("|--- Broadcast message: -----------------------------------------|")
+                print(message)
+                print("|----------------------------------------------------------------|")
+                # Save to file
+                with tracer.start_as_current_span("save_message_file"):
+                    with open(self.controller.message_file, 'w') as f:
+                        f.write(message)
 
-            # Show scrolling message on display
-            if message and self.display_renderer.running:
-                self.display_renderer.show_broadcast(message, duration=duration)
+                # Show scrolling message on display
+                if message and self.display_renderer.running:
+                    with tracer.start_as_current_span("display_broadcast"):
+                        self.display_renderer.show_broadcast(message, duration=duration)
+                    span.set_attribute("displayed", True)
+                else:
+                    span.set_attribute("displayed", False)
 
-            # Call callback if set
-            if self.controller.message_callback:
-                try:
-                    self.controller.message_callback(message)
-                except Exception as e:
-                    print(f"Error in message callback: {e}")
+                # Call callback if set
+                if self.controller.message_callback:
+                    try:
+                        with tracer.start_as_current_span("message_callback"):
+                            self.controller.message_callback(message)
+                    except Exception as e:
+                        span.record_exception(e)
+                        span.set_attribute("callback_error", str(e))
+                        print(f"Error in message callback: {e}")
 
-            return jsonify({'status': 'message sent', 'message': message})
+                return jsonify({'status': 'message sent', 'message': message})
         
         @self.app.get("/api/health")
         def health():

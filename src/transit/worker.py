@@ -222,55 +222,82 @@ def load_all_stops(data_dir: str) -> Dict[str, TrainStop]:
 
 
 def fetch_arrivals(feed_url: str, stop_id: str, api_key: str, timeout_s: float = 10.0) -> List[Arrival]:
-    headers = {"x-api-key": api_key} if api_key else {}
-    resp = requests.get(feed_url, headers=headers, timeout=timeout_s)
-    resp.raise_for_status()
+    from opentelemetry import trace
+    
+    tracer = trace.get_tracer(__name__)
+    
+    with tracer.start_as_current_span("fetch_arrivals") as span:
+        span.set_attribute("stop_id", stop_id)
+        span.set_attribute("feed_url", feed_url)
+        span.set_attribute("timeout", timeout_s)
+        
+        headers = {"x-api-key": api_key} if api_key else {}
+        
+        with tracer.start_as_current_span("http_request") as http_span:
+            http_span.set_attribute("http.method", "GET")
+            http_span.set_attribute("http.url", feed_url)
+            try:
+                resp = requests.get(feed_url, headers=headers, timeout=timeout_s)
+                http_span.set_attribute("http.status_code", resp.status_code)
+                resp.raise_for_status()
+            except Exception as e:
+                http_span.record_exception(e)
+                http_span.set_attribute("error", True)
+                raise
 
-    msg = gtfs_realtime_pb2.FeedMessage()
-    msg.ParseFromString(resp.content)
+        with tracer.start_as_current_span("parse_gtfs_realtime") as parse_span:
+            msg = gtfs_realtime_pb2.FeedMessage()
+            msg.ParseFromString(resp.content)
+            parse_span.set_attribute("message_size_bytes", len(resp.content))
 
-    now = datetime.now(timezone.utc)
-    arrivals: List[Arrival] = []
+            now = datetime.now(timezone.utc)
+            arrivals: List[Arrival] = []
+            parse_span.set_attribute("entity_count", len(msg.entity))
 
-    for ent in msg.entity:
-        if not ent.HasField("trip_update"):
-            continue
-        tu = ent.trip_update
-        route_id = tu.trip.route_id
+            for ent in msg.entity:
+                if not ent.HasField("trip_update"):
+                    continue
+                tu = ent.trip_update
+                route_id = tu.trip.route_id
 
-        # Extract destination/headsign from GTFS-RT
-        destination = ""
-        try:
-            # Try trip_properties.trip_headsign (GTFS-RT 2.0+)
-            if tu.HasField("trip_properties") and tu.trip_properties.trip_headsign:
-                destination = tu.trip_properties.trip_headsign
-        except Exception:
-            pass
+                # Extract destination/headsign from GTFS-RT
+                destination = ""
+                try:
+                    # Try trip_properties.trip_headsign (GTFS-RT 2.0+)
+                    if tu.HasField("trip_properties") and tu.trip_properties.trip_headsign:
+                        destination = tu.trip_properties.trip_headsign
+                except Exception:
+                    pass
 
-        # Fallback: use last stop_id in the trip
-        if not destination and tu.stop_time_update:
-            destination = tu.stop_time_update[-1].stop_id
+                # Fallback: use last stop_id in the trip
+                if not destination and tu.stop_time_update:
+                    destination = tu.stop_time_update[-1].stop_id
 
-        for stu in tu.stop_time_update:
-            if stu.stop_id != stop_id:
-                continue
+                for stu in tu.stop_time_update:
+                    if stu.stop_id != stop_id:
+                        continue
 
-            epoch = 0
-            if stu.HasField("departure") and stu.departure.time:
-                epoch = int(stu.departure.time)
-            elif stu.HasField("arrival") and stu.arrival.time:
-                epoch = int(stu.arrival.time)
-            if not epoch:
-                continue
+                    epoch = 0
+                    if stu.HasField("departure") and stu.departure.time:
+                        epoch = int(stu.departure.time)
+                    elif stu.HasField("arrival") and stu.arrival.time:
+                        epoch = int(stu.arrival.time)
+                    if not epoch:
+                        continue
 
-            t = datetime.fromtimestamp(epoch, tz=timezone.utc)
-            if t < now:
-                continue
+                    t = datetime.fromtimestamp(epoch, tz=timezone.utc)
+                    if t < now:
+                        continue
 
-            arrivals.append(Arrival(route_id=route_id, when=t, destination=destination))
+                    arrivals.append(Arrival(route_id=route_id, when=t, destination=destination))
 
-    arrivals.sort(key=lambda a: a.when)
-    return arrivals[:MAX_ARRIVALS]
+            arrivals.sort(key=lambda a: a.when)
+            filtered_arrivals = arrivals[:MAX_ARRIVALS]
+            parse_span.set_attribute("arrivals_found", len(arrivals))
+            parse_span.set_attribute("arrivals_returned", len(filtered_arrivals))
+            span.set_attribute("arrivals_count", len(filtered_arrivals))
+            
+            return filtered_arrivals
 
 
 class DataBuffers:
@@ -352,6 +379,9 @@ class MTAWorker(threading.Thread):
         # Minimal behavior match: original loop uses the first stop (even if multiple were parsed)
         # You can extend to rotate stops if you want.
         
+        from opentelemetry import trace
+        tracer = trace.get_tracer(__name__)
+        
         first_stop_id = self._configured_stop_ids[0]
         print("RUN worker: " + self.name + " " + first_stop_id)
         stop = self._stops.get(first_stop_id)
@@ -363,16 +393,29 @@ class MTAWorker(threading.Thread):
         feed_url = resolve_feed_url(feed_group)
         print(feed_url)
         while not self._stop_evt.is_set():
-            try:
-                arrivals = fetch_arrivals(feed_url, stop.stop_id, api_key=self._api_key)
-                self._buffers.set_from_arrivals(arrivals, stops=self._stops)
+            with tracer.start_as_current_span("worker_refresh_cycle") as span:
+                span.set_attribute("worker_name", self.name)
+                span.set_attribute("stop_id", stop.stop_id)
+                span.set_attribute("feed_url", feed_url)
+                
+                try:
+                    arrivals = fetch_arrivals(feed_url, stop.stop_id, api_key=self._api_key)
+                    span.set_attribute("arrivals_count", len(arrivals))
+                    
+                    with tracer.start_as_current_span("update_buffers"):
+                        self._buffers.set_from_arrivals(arrivals, stops=self._stops)
 
-                print("Setting arrivals for " + self.name)
-            except Exception:
-                # On error, keep prior buffer; could also clear or write an error sentinel.
-                pass
+                    span.set_attribute("success", True)
+                    print("Setting arrivals for " + self.name)
+                except Exception as e:
+                    span.record_exception(e)
+                    span.set_attribute("error", True)
+                    span.set_attribute("error_message", str(e))
+                    # On error, keep prior buffer; could also clear or write an error sentinel.
+                    import traceback
+                    traceback.print_exc()
 
-            self._stop_evt.wait(self._refresh_s)
+                self._stop_evt.wait(self._refresh_s)
 
 
 
