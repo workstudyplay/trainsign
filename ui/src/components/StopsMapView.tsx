@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Navigation, RotateCcw } from 'lucide-react';
+import { Navigation, RotateCcw, Maximize2, Minimize2 } from 'lucide-react';
 import { Stop, UserLocation } from '../types';
 import { formatDistance, calculateDistance } from '../utils/geo';
 import { getDirectionLabel, getBaseStationId, getDirectionFromStopId, getRouteFromStopId } from '../utils/directions';
@@ -76,6 +76,7 @@ interface StopsMapViewProps {
   isManualOverride: boolean;
   onSetManualLocation: (location: UserLocation) => void;
   onClearManualLocation: () => void;
+  showRouteLines: boolean;
 }
 
 // Grouped station with N and S stops
@@ -251,7 +252,11 @@ export default function StopsMapView({
   isManualOverride,
   onSetManualLocation,
   onClearManualLocation,
+  showRouteLines,
 }: StopsMapViewProps) {
+  const [isMaximized, setIsMaximized] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const mapCenter: [number, number] = useMemo(() => {
     if (location) {
       return [location.lat, location.lon];
@@ -331,9 +336,16 @@ export default function StopsMapView({
     return 'none';
   };
 
+  // Scroll map into view when maximized
+  useEffect(() => {
+    if (isMaximized && containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [isMaximized]);
+
   return (
-    <div className="space-y-3">
-      {/* Control bar - matches list view height */}
+    <div ref={containerRef} className="space-y-3">
+      {/* Control bar */}
       <div className="flex items-center justify-between gap-2 min-h-[32px]">
         <div className="flex items-center gap-2">
           {isManualOverride && (
@@ -346,21 +358,34 @@ export default function StopsMapView({
             </button>
           )}
         </div>
-        {isManualOverride && (
-          <span className="text-xs text-amber-400">
-            Using custom location
-          </span>
-        )}
-        {!isManualOverride && location && (
-          <span className="text-xs text-green-400 flex items-center gap-1">
-            <Navigation size={12} />
-            GPS location
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isManualOverride && (
+            <span className="text-xs text-amber-400">
+              Using custom location
+            </span>
+          )}
+          {!isManualOverride && location && (
+            <span className="text-xs text-green-400 flex items-center gap-1">
+              <Navigation size={12} />
+              GPS location
+            </span>
+          )}
+          <button
+            onClick={() => setIsMaximized(!isMaximized)}
+            className="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            title={isMaximized ? 'Minimize map' : 'Maximize map'}
+          >
+            {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
       </div>
 
-      {/* Map container - fixed height to match list view */}
-      <div className="h-80 sm:h-96 rounded-lg overflow-hidden border border-gray-600 transition-all duration-300">
+      {/* Map container - 150% taller, or full viewport when maximized */}
+      <div
+        className={`rounded-lg overflow-hidden border border-gray-600 transition-all duration-300 ${
+          isMaximized ? 'h-[calc(100vh-120px)]' : 'h-[480px] sm:h-[576px]'
+        }`}
+      >
         <MapContainer
           center={mapCenter}
           zoom={DEFAULT_ZOOM}
@@ -373,20 +398,21 @@ export default function StopsMapView({
           />
           <MapController center={mapCenter} />
 
-          {/* Route lines */}
-          {Object.entries(routeShapesData).map(([route, data]) =>
-            data.lines.map((line, lineIdx) => (
-              <Polyline
-                key={`${route}-${lineIdx}`}
-                positions={line.map((coord) => [coord[0], coord[1]] as [number, number])}
-                pathOptions={{
-                  color: data.color,
-                  weight: 3,
-                  opacity: 0.7,
-                }}
-              />
-            ))
-          )}
+          {/* Route lines - only show when trains are visible */}
+          {showRouteLines &&
+            Object.entries(routeShapesData).map(([route, data]) =>
+              data.lines.map((line, lineIdx) => (
+                <Polyline
+                  key={`${route}-${lineIdx}`}
+                  positions={line.map((coord) => [coord[0], coord[1]] as [number, number])}
+                  pathOptions={{
+                    color: data.color,
+                    weight: 3,
+                    opacity: 0.7,
+                  }}
+                />
+              ))
+            )}
 
           {/* User location marker */}
           {userPosition && (

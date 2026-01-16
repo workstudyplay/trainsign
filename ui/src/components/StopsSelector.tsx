@@ -134,6 +134,7 @@ export default function StopsSelector() {
           isManualOverride={isManualOverride}
           onSetManualLocation={setManualLocation}
           onClearManualLocation={clearManualLocation}
+          showRouteLines={showTrains}
         />
       )}
 
