@@ -34,8 +34,9 @@ from dataclasses import dataclass
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.matrix import load_matrix, import_matrix
+
+# Graphics module needed at module level for Color definitions in class
 _, _, graphics = import_matrix()
-matrix, canvas = load_matrix()
 
 def now_s():
     return time.monotonic()
@@ -582,6 +583,7 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 
+    matrix, canvas = load_matrix()
     game = Mario9(args.width, args.height, seed=args.seed)
 
     off = matrix.CreateFrameCanvas()

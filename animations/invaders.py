@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.matrix import load_matrix, import_matrix
 
+# Graphics module needed at module level for Color definitions in class
 _, _, graphics = import_matrix()
-matrix, canvas = load_matrix()
 
 # Asset paths
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "../../assets")
@@ -384,6 +384,7 @@ def main():
     parser.add_argument("--fps", type=int, default=30)
     args = parser.parse_args()
 
+    matrix, canvas = load_matrix()
     game = SpaceInvaders(args.width, args.height, scale=args.scale)
 
     off = matrix.CreateFrameCanvas()
