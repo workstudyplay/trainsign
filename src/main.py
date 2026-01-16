@@ -10,7 +10,7 @@ import threading
 import time
 import os
 from typing import Optional, List, Dict, Callable
-from transit.worker import load_stop_data, MTAWorker, DataBuffers
+from transit.worker import load_stop_data, load_all_stops, MTAWorker, DataBuffers
 from config import load_selected_stops, save_selected_stops, load_scripts, save_scripts
 from display import DisplayRenderer
 
@@ -28,9 +28,9 @@ class StopWorkersManager:
         self._load_stops_data()
 
     def _load_stops_data(self):
-        """Load all stops data from file"""
-        stops_file = os.path.join(os.path.dirname(__file__), 'transit', 'data', 'stops.txt')
-        self.stops_data = load_stop_data(stops_file)
+        """Load all stops data from file (trains and buses)"""
+        data_dir = os.path.join(os.path.dirname(__file__), 'transit', 'data')
+        self.stops_data = load_all_stops(data_dir)
 
     def start_workers(self, stop_ids: List[str]):
         """Start workers for the given stop IDs"""
@@ -52,6 +52,13 @@ class StopWorkersManager:
 
         if stop_id not in self.stops_data:
             print(f"Stop {stop_id} not found in stops data")
+            return
+
+        stop = self.stops_data[stop_id]
+
+        # Skip bus stops for now - bus GTFS-RT feeds are not yet configured
+        if stop.transit_type == "bus":
+            print(f"Skipping worker for bus stop {stop_id} (bus feeds not yet supported)")
             return
 
         buffers = DataBuffers()
@@ -397,24 +404,32 @@ class WebAPIService:
 
         @self.app.route('/api/stops', methods=['GET'])
         def get_stops():
-            """Return all directional stops (N/S) with coordinates"""
-            stops_file = os.path.join(os.path.dirname(__file__), 'transit', 'data', 'stops.txt')
-            all_stops = load_stop_data(stops_file)
+            """Return all stops with coordinates, including trains and buses"""
+            data_dir = os.path.join(os.path.dirname(__file__), 'transit', 'data')
+            all_stops = load_all_stops(data_dir)
 
-            directional_stops = [
-                {
+            result_stops = []
+            for stop in all_stops.values():
+                # For trains, only include directional stops (N/S suffix)
+                if stop.transit_type == "train":
+                    if not (stop.stop_id.endswith('N') or stop.stop_id.endswith('S')):
+                        continue
+                    direction = 'Northbound' if stop.stop_id.endswith('N') else 'Southbound'
+                else:
+                    # Bus stops don't have direction suffixes
+                    direction = ''
+
+                result_stops.append({
                     'stop_id': stop.stop_id,
                     'stop_name': stop.name,
                     'lat': float(stop.lat),
                     'lon': float(stop.lon),
                     'line': stop.line,
-                    'direction': 'Northbound' if stop.stop_id.endswith('N') else 'Southbound'
-                }
-                for stop in all_stops.values()
-                if stop.stop_id.endswith('N') or stop.stop_id.endswith('S')
-            ]
+                    'direction': direction,
+                    'type': stop.transit_type
+                })
 
-            return jsonify(directional_stops)
+            return jsonify(result_stops)
 
         @self.app.route('/api/selected-stops', methods=['GET'])
         def get_selected_stops():
