@@ -527,7 +527,5 @@ def create_service(script_runner=None, host='0.0.0.0', port=5002, api_key: str =
 
 
 if __name__ == '__main__':
-    # Standalone mode
-    os.makedirs('scripts', exist_ok=True)
     service = create_service()
     service.start(blocking=True)

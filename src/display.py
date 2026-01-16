@@ -102,7 +102,7 @@ class DisplayRenderer:
 
         # Load larger font for broadcast messages
         self.broadcast_font = graphics.Font()
-        self.broadcast_font.LoadFont(os.path.join(ASSETS_DIR, "fonts/6x10.bdf"))
+        self.broadcast_font.LoadFont(os.path.join(ASSETS_DIR, "fonts/helvR12.bdf"))
 
     def set_buffers(self, buffers: Dict[str, DataBuffers], stop_names: Dict[str, str]):
         """Update the buffers to render from"""

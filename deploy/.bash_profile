@@ -5,7 +5,7 @@ echo "
 ▐ ▙▘▌▌▐ ▛▖▌▚ ▐ ▌ ▛▖▌
 ▐ ▌▌▛▌▟▖▌▝▌▄▌▟▖▙▌▌▝▌.nyc
 
-Python virtual environment located in /home/pi/trainsign
+Python virtua   l environment located in /home/pi/trainsign
 
 Run this command to activate it (run automaticly at login)
 source ~/trainsign/bin/activate
