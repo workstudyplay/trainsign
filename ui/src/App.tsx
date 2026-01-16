@@ -3,7 +3,6 @@ import { Train, Settings, Send, ChevronDown } from 'lucide-react';
 import StopsSelector from './components/StopsSelector';
 import ArrivalsPanel from './components/ArrivalsPanel';
 import DisplayControl from './components/DisplayControl';
-import AnimationsSelector from './components/AnimationsSelector';
 
 import { API_BASE } from "./const"
 

@@ -1,9 +1,20 @@
-import { useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useMemo, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Navigation, RotateCcw } from 'lucide-react';
 import { Stop, UserLocation } from '../types';
 import { formatDistance, calculateDistance } from '../utils/geo';
+import { getDirectionLabel, getBaseStationId, getDirectionFromStopId, getRouteFromStopId } from '../utils/directions';
+import { getLineColor } from '../utils/lineColors';
+import routeShapes from '../data/routeShapes.json';
+
+// Type for route shapes data
+interface RouteShape {
+  color: string;
+  lines: number[][][];
+}
+
+const routeShapesData = routeShapes as Record<string, RouteShape>;
 
 // Custom icons
 const userIcon = L.divIcon({
@@ -20,21 +31,26 @@ const userIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
+// Selection states for grouped stations
+type SelectionState = 'none' | 'partial' | 'full';
+
 // Colors for different transit types and selection states
 const MARKER_COLORS = {
   train: {
-    selected: { bg: '#9333ea', border: '#c084fc' },    // Purple
-    unselected: { bg: '#6b7280', border: '#9ca3af' },  // Gray
+    none: { bg: '#6b7280', border: '#9ca3af' },      // Gray
+    partial: { bg: '#a855f7', border: '#c084fc' },   // Light purple
+    full: { bg: '#9333ea', border: '#c084fc' },      // Purple
   },
   bus: {
-    selected: { bg: '#2563eb', border: '#60a5fa' },    // Blue
-    unselected: { bg: '#6b7280', border: '#9ca3af' },  // Gray
+    none: { bg: '#6b7280', border: '#9ca3af' },      // Gray
+    partial: { bg: '#60a5fa', border: '#93c5fd' },   // Light blue
+    full: { bg: '#2563eb', border: '#60a5fa' },      // Blue
   },
 };
 
-const createStationIcon = (isSelected: boolean, transitType: 'train' | 'bus' = 'train') => {
+const createStationIcon = (selectionState: SelectionState, transitType: 'train' | 'bus' = 'train') => {
   const colors = MARKER_COLORS[transitType] || MARKER_COLORS.train;
-  const colorSet = isSelected ? colors.selected : colors.unselected;
+  const colorSet = colors[selectionState];
 
   return L.divIcon({
     className: 'station-marker',
@@ -60,6 +76,20 @@ interface StopsMapViewProps {
   isManualOverride: boolean;
   onSetManualLocation: (location: UserLocation) => void;
   onClearManualLocation: () => void;
+}
+
+// Grouped station with N and S stops
+interface StationGroup {
+  baseId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  route: string;
+  type: 'train' | 'bus';
+  stops: {
+    N?: Stop;
+    S?: Stop;
+  };
 }
 
 // Default center (NYC Grand Central area for MTA)
@@ -109,6 +139,110 @@ function DraggableUserMarker({
   );
 }
 
+// Station marker with hover-to-open popup
+function StationMarker({
+  group,
+  selectionState,
+  distance,
+  selectedStopIds,
+  onToggleStop,
+}: {
+  group: StationGroup;
+  selectionState: SelectionState;
+  distance: number | undefined;
+  selectedStopIds: string[];
+  onToggleStop: (stopId: string) => void;
+}) {
+  const markerRef = useRef<L.Marker>(null);
+
+  const routeColor = getLineColor(group.route);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[group.lat, group.lon]}
+      icon={createStationIcon(selectionState, group.type)}
+      eventHandlers={{
+        mouseover: () => {
+          markerRef.current?.openPopup();
+        },
+      }}
+    >
+      <Popup>
+        <div className="min-w-[200px] bg-gray-50 -m-[13px] -mt-[13px] p-3 rounded">
+          <div className="font-semibold text-gray-900">{group.name}</div>
+          {distance !== undefined && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              {formatDistance(distance)}
+            </div>
+          )}
+
+          {/* Direction checkboxes for train stations */}
+          {group.type === 'train' && (group.stops.N || group.stops.S) && (
+            <div className="mt-2 space-y-2">
+              {group.stops.N && (
+                <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-200 rounded px-1 py-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedStopIds.includes(group.stops.N.stop_id)}
+                    onChange={() => onToggleStop(group.stops.N!.stop_id)}
+                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ backgroundColor: routeColor }}
+                  >
+                    {group.route}
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    {getDirectionLabel(group.route, 'N')}
+                  </span>
+                </label>
+              )}
+              {group.stops.S && (
+                <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-200 rounded px-1 py-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedStopIds.includes(group.stops.S.stop_id)}
+                    onChange={() => onToggleStop(group.stops.S!.stop_id)}
+                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ backgroundColor: routeColor }}
+                  >
+                    {group.route}
+                  </span>
+                  <span className="text-sm text-gray-700">
+                    {getDirectionLabel(group.route, 'S')}
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          {/* Bus stop toggle button */}
+          {group.type === 'bus' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleStop(group.baseId);
+              }}
+              className={`mt-2 w-full px-2 py-1 text-xs rounded ${
+                selectionState === 'full'
+                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}
+            >
+              {selectionState === 'full' ? 'Deselect' : 'Select'}
+            </button>
+          )}
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
 export default function StopsMapView({
   stops,
   selectedStopIds,
@@ -132,8 +266,69 @@ export default function StopsMapView({
     return null;
   }, [location]);
 
+  // Group stops by base station ID (combining N and S)
+  const stationGroups = useMemo(() => {
+    const groups: Record<string, StationGroup> = {};
+
+    for (const stop of stops) {
+      // Only group train stops with N/S suffixes
+      if (stop.type !== 'train') {
+        // Bus stops don't get grouped
+        const busGroup: StationGroup = {
+          baseId: stop.stop_id,
+          name: stop.stop_name,
+          lat: stop.lat,
+          lon: stop.lon,
+          route: 'Bus',
+          type: 'bus',
+          stops: {},
+        };
+        groups[stop.stop_id] = busGroup;
+        continue;
+      }
+
+      const direction = getDirectionFromStopId(stop.stop_id);
+      if (!direction) continue; // Skip parent stations without direction
+
+      const baseId = getBaseStationId(stop.stop_id);
+      const route = getRouteFromStopId(stop.stop_id);
+
+      if (!groups[baseId]) {
+        groups[baseId] = {
+          baseId,
+          name: stop.stop_name,
+          lat: stop.lat,
+          lon: stop.lon,
+          route,
+          type: 'train',
+          stops: {},
+        };
+      }
+
+      groups[baseId].stops[direction] = stop;
+    }
+
+    return Object.values(groups);
+  }, [stops]);
+
   const handleMarkerDragEnd = (lat: number, lon: number) => {
     onSetManualLocation({ lat, lon });
+  };
+
+  // Get selection state for a station group
+  const getSelectionState = (group: StationGroup): SelectionState => {
+    if (group.type === 'bus') {
+      return selectedStopIds.includes(group.baseId) ? 'full' : 'none';
+    }
+
+    const nSelected = group.stops.N && selectedStopIds.includes(group.stops.N.stop_id);
+    const sSelected = group.stops.S && selectedStopIds.includes(group.stops.S.stop_id);
+    const hasN = !!group.stops.N;
+    const hasS = !!group.stops.S;
+
+    if (hasN && hasS && nSelected && sSelected) return 'full';
+    if (nSelected || sSelected) return 'partial';
+    return 'none';
   };
 
   return (
@@ -178,6 +373,21 @@ export default function StopsMapView({
           />
           <MapController center={mapCenter} />
 
+          {/* Route lines */}
+          {Object.entries(routeShapesData).map(([route, data]) =>
+            data.lines.map((line, lineIdx) => (
+              <Polyline
+                key={`${route}-${lineIdx}`}
+                positions={line.map((coord) => [coord[0], coord[1]] as [number, number])}
+                pathOptions={{
+                  color: data.color,
+                  weight: 3,
+                  opacity: 0.7,
+                }}
+              />
+            ))
+          )}
+
           {/* User location marker */}
           {userPosition && (
             <DraggableUserMarker
@@ -186,52 +396,22 @@ export default function StopsMapView({
             />
           )}
 
-          {/* Station markers */}
-          {stops.map((stop) => {
-            const isSelected = selectedStopIds.includes(stop.stop_id);
+          {/* Station markers (grouped) */}
+          {stationGroups.map((group) => {
+            const selectionState = getSelectionState(group);
             const distance = location
-              ? calculateDistance(location.lat, location.lon, stop.lat, stop.lon)
+              ? calculateDistance(location.lat, location.lon, group.lat, group.lon)
               : undefined;
-            const transitType = stop.type || 'train';
 
             return (
-              <Marker
-                key={stop.stop_id}
-                position={[stop.lat, stop.lon]}
-                icon={createStationIcon(isSelected, transitType)}
-                eventHandlers={{
-                  click: () => onToggleStop(stop.stop_id),
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[150px]">
-                    <div className="font-semibold">{stop.stop_name}</div>
-                    <div className="text-xs text-gray-500">
-                      {transitType === 'bus' ? 'Bus stop' : stop.line + ' line'}{stop.direction && ` · ${stop.direction}`}
-                    </div>
-                    {distance !== undefined && (
-                      <div className={`text-xs mt-1 ${transitType === 'bus' ? 'text-blue-600' : 'text-purple-600'}`}>
-                        {formatDistance(distance)}
-                      </div>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleStop(stop.stop_id);
-                      }}
-                      className={`mt-2 w-full px-2 py-1 text-xs rounded ${
-                        isSelected
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : transitType === 'bus'
-                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                      }`}
-                    >
-                      {isSelected ? 'Deselect' : 'Select'}
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
+              <StationMarker
+                key={group.baseId}
+                group={group}
+                selectionState={selectionState}
+                distance={distance}
+                selectedStopIds={selectedStopIds}
+                onToggleStop={onToggleStop}
+              />
             );
           })}
         </MapContainer>
@@ -239,7 +419,7 @@ export default function StopsMapView({
 
       {/* Instructions */}
       <p className="text-xs text-gray-400 text-center">
-        Drag the blue marker to set a custom location. Click stations to select.
+        Drag the blue marker to set a custom location. Hover over stations to select directions.
       </p>
     </div>
   );
