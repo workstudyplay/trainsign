@@ -2,7 +2,7 @@
 RGB Matrix Web API Service
 Can be imported and controlled from main.py
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
 import subprocess
@@ -14,6 +14,8 @@ from transit.worker import load_stop_data, MTAWorker, DataBuffers
 from config import load_selected_stops, save_selected_stops, load_scripts, save_scripts
 from display import DisplayRenderer
 
+WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "ui", "dist")
+ASSETS_DIR = os.path.join(WEB_DIR, "assets")
 
 class StopWorkersManager:
     """Manages MTAWorker instances for configured stops"""
@@ -369,6 +371,26 @@ class WebAPIService:
 
             return jsonify({'status': 'message sent', 'message': message})
         
+        @self.app.get("/api/health")
+        def health():
+            return jsonify(ok=True)
+
+        @self.app.get("/")
+        def index():
+            return send_from_directory(WEB_DIR, "index.html")
+
+        # Catch-all for client-side routes (e.g. /settings, /users/123)
+        @self.app.get("/<path:path>")
+        def spa_catch_all(path: str):
+            full_path = os.path.join(WEB_DIR, path)
+
+            # If it's a real file (js/css/img/etc), serve it
+            if os.path.isfile(full_path):
+                return send_from_directory(WEB_DIR, path)
+
+            # Otherwise serve index.html so the SPA router can handle it
+            return send_from_directory(WEB_DIR, "index.html")
+
         @self.app.route('/api/status', methods=['GET'])
         def get_status():
             return jsonify(self.controller.get_status())

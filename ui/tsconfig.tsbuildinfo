@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/const.ts","./src/main.tsx","./src/types.ts","./src/components/animationsselector.tsx","./src/components/arrivalspanel.tsx","./src/components/displaycontrol.tsx","./src/components/stopsselector.tsx","./src/hooks/usearrivals.ts","./src/hooks/usegeolocation.ts","./src/hooks/usestops.ts","./src/utils/geo.ts"],"version":"5.9.3"}

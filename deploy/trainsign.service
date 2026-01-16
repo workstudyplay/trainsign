@@ -1,0 +1,17 @@
+[Unit]
+Description=TrainSign service for connected RGB matrix panel
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+
+WorkingDirectory=/home/pi/trainsign/src
+ExecStart=/home/pi/rgbmatrix/bin/python /home/pi/trainsign/src/main.py --loop
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
