@@ -45,7 +45,7 @@ export default function DisplayControl() {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg shadow-xl p-6">
+      <div className="bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
         <div className="flex items-center gap-2 text-gray-400">
           <Loader2 className="animate-spin" size={20} />
           Loading display status...
@@ -55,14 +55,14 @@ export default function DisplayControl() {
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-xl p-6">
-      <div className="flex justify-between items-center">
+    <div className="bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
+      <div className="flex justify-between items-center gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
             {running ? <Monitor size={20} /> : <MonitorOff size={20} />}
             Display
           </h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">
             {running ? 'Display is rendering arrivals' : 'Display is off'}
           </p>
         </div>
@@ -72,7 +72,7 @@ export default function DisplayControl() {
             running
               ? 'bg-red-600 hover:bg-red-700'
               : 'bg-green-600 hover:bg-green-700'
-          } text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors`}
+          } text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg flex items-center gap-2 transition-colors`}
         >
           {running ? (
             <>
@@ -88,7 +88,7 @@ export default function DisplayControl() {
         </button>
       </div>
       {error && (
-        <div className="mt-4 bg-red-600/20 text-red-400 px-4 py-2 rounded">
+        <div className="mt-3 sm:mt-4 bg-red-600/20 text-red-400 px-3 sm:px-4 py-2 rounded text-sm">
           {error}
         </div>
       )}

@@ -36,7 +36,7 @@ export default function ArrivalsPanel() {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg shadow-xl p-6">
+      <div className="bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
         <div className="flex items-center gap-2 text-gray-400">
           <Loader2 className="animate-spin" size={20} />
           Loading arrivals...
@@ -49,38 +49,38 @@ export default function ArrivalsPanel() {
 
   if (stopIds.length === 0) {
     return (
-      <div className="bg-gray-800 rounded-lg shadow-xl p-6">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
+      <div className="bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2 mb-3 sm:mb-4">
           <Train size={20} />
           Train Arrivals
         </h2>
-        <p className="text-gray-400">No stops configured. Select stations above to see arrivals.</p>
+        <p className="text-gray-400 text-sm sm:text-base">No stops configured. Select stations above to see arrivals.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-xl p-6">
-      <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
+    <div className="w-full bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
+      <h2 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2 mb-3 sm:mb-4">
         <Train size={20} />
         Train Arrivals
       </h2>
 
       {error && (
-        <div className="bg-red-600/20 text-red-400 px-4 py-2 rounded mb-4">
+        <div className="bg-red-600/20 text-red-400 px-3 sm:px-4 py-2 rounded mb-3 sm:mb-4 text-sm">
           {error}
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {stopIds.map((stopId) => {
           const stop = arrivals[stopId];
           const hasArrivals = stop.arrivals.some((a) => a.route_id);
 
           return (
-            <div key={stopId} className="bg-gray-700 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-white font-medium">{stop.stop_name}</h3>
+            <div key={stopId} className="bg-gray-700 rounded-lg p-3 sm:p-4">
+              <div className="flex justify-between items-center mb-2 sm:mb-3">
+                <h3 className="text-white font-medium text-sm sm:text-base">{stop.stop_name}</h3>
                 <span className="text-xs text-gray-400">{stopId}</span>
               </div>
 
@@ -91,23 +91,23 @@ export default function ArrivalsPanel() {
                     .map((arrival, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between bg-gray-800 rounded px-3 py-2"
+                        className="flex items-center justify-between bg-gray-800 rounded px-2 sm:px-3 py-2"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <span
-                            className={`${getLineColor(arrival.route_id)} text-white font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm`}
+                            className={`${getLineColor(arrival.route_id)} text-white font-bold w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm`}
                           >
                             {arrival.route_id}
                           </span>
-                          <span className="text-gray-300 text-sm">
+                          <span className="text-gray-300 text-xs sm:text-sm">
                             {arrival.text || 'Train'}
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-white font-mono text-lg">
+                          <span className="text-white font-mono text-base sm:text-lg">
                             {arrival.status}
                           </span>
-                          <span className="text-gray-400 text-xs ml-2">
+                          <span className="text-gray-400 text-xs ml-1 sm:ml-2">
                             {arrival.time}
                           </span>
                         </div>

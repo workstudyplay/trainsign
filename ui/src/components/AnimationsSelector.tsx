@@ -89,7 +89,7 @@ export default function AnimationsSelector({ onStatusChange }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg shadow-xl p-6">
+      <div className="bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
         <div className="flex items-center gap-2 text-gray-400">
           <Loader2 className="animate-spin" size={20} />
           Loading animations...
@@ -102,18 +102,18 @@ export default function AnimationsSelector({ onStatusChange }: Props) {
   const totalDuration = animations.filter(a => a.enabled).reduce((sum, a) => sum + a.duration, 0);
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-xl p-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6">
+      <div className="flex justify-between items-center mb-3 sm:mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-white">Animations</h2>
-          <p className="text-sm text-gray-400">
+          <h2 className="text-lg sm:text-xl font-semibold text-white">Animations</h2>
+          <p className="text-xs sm:text-sm text-gray-400">
             {enabledCount} enabled · {totalDuration}s total
           </p>
         </div>
         <button
           onClick={saveConfig}
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
           Save
@@ -124,39 +124,39 @@ export default function AnimationsSelector({ onStatusChange }: Props) {
         {animations.map((animation) => (
           <div
             key={animation.name}
-            className={`bg-gray-700 rounded-lg p-4 flex items-center gap-3 ${
+            className={`bg-gray-700 rounded-lg p-3 sm:p-4 flex items-center gap-2 sm:gap-3 ${
               animation.enabled ? 'ring-1 ring-purple-500' : ''
             }`}
           >
-            <GripVertical size={20} className="text-gray-500" />
+            <GripVertical size={20} className="text-gray-500 hidden sm:block" />
 
             <input
               type="checkbox"
               checked={animation.enabled}
               onChange={() => toggleAnimation(animation.name)}
-              className="w-5 h-5 rounded cursor-pointer accent-purple-500"
+              className="w-5 h-5 rounded cursor-pointer accent-purple-500 flex-shrink-0"
             />
 
-            <span className={`flex-1 ${animation.enabled ? 'text-white' : 'text-gray-500'}`}>
+            <span className={`flex-1 text-sm sm:text-base ${animation.enabled ? 'text-white' : 'text-gray-500'}`}>
               {animation.display_name}
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <input
                 type="number"
                 value={animation.duration}
                 onChange={(e) => updateDuration(animation.name, parseInt(e.target.value) || 10)}
-                className="w-16 bg-gray-600 text-white px-2 py-1 rounded text-center"
+                className="w-14 sm:w-16 bg-gray-600 text-white px-2 py-1 rounded text-center text-sm"
                 min="1"
               />
-              <span className="text-gray-400 text-sm">sec</span>
+              <span className="text-gray-400 text-xs sm:text-sm">sec</span>
             </div>
           </div>
         ))}
       </div>
 
       {animations.length === 0 && (
-        <p className="text-gray-400 text-center py-4">No animations found in animations folder</p>
+        <p className="text-gray-400 text-center py-4 text-sm">No animations found in animations folder</p>
       )}
     </div>
   );
