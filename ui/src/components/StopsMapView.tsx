@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Navigation, RotateCcw, Maximize2, Minimize2 } from 'lucide-react';
+import { Navigation, RotateCcw, Maximize2, Minimize2, X } from 'lucide-react';
 import { Stop, UserLocation } from '../types';
 import { formatDistance, calculateDistance } from '../utils/geo';
 import { getDirectionLabel, getBaseStationId, getDirectionFromStopId, getRouteFromStopId } from '../utils/directions';
@@ -140,38 +140,127 @@ function DraggableUserMarker({
   );
 }
 
-// Station marker with hover-to-open popup
+// Station marker with hover/click popup behavior
+// - Hover: opens popup, closes when mouse leaves marker AND popup
+// - Click: pins popup open until X is clicked
+// - Mobile: uses click behavior (no hover)
 function StationMarker({
   group,
   selectionState,
   distance,
   selectedStopIds,
   onToggleStop,
+  adjustedPosition,
 }: {
   group: StationGroup;
   selectionState: SelectionState;
   distance: number | undefined;
   selectedStopIds: string[];
   onToggleStop: (stopId: string) => void;
+  adjustedPosition: [number, number];
 }) {
   const markerRef = useRef<L.Marker>(null);
+  const [isPinned, setIsPinned] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const routeColor = getLineColor(group.route);
+
+  // Clear any pending close timeout
+  const clearCloseTimeout = useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Schedule popup close with delay
+  const scheduleClose = useCallback(() => {
+    clearCloseTimeout();
+    closeTimeoutRef.current = setTimeout(() => {
+      if (!isPinned) {
+        markerRef.current?.closePopup();
+      }
+    }, 150); // Small delay to allow moving to popup
+  }, [isPinned, clearCloseTimeout]);
+
+  // Handle marker hover
+  const handleMouseOver = useCallback(() => {
+    clearCloseTimeout();
+    markerRef.current?.openPopup();
+  }, [clearCloseTimeout]);
+
+  const handleMouseOut = useCallback(() => {
+    if (!isPinned) {
+      scheduleClose();
+    }
+  }, [isPinned, scheduleClose]);
+
+  // Handle marker click (pin the popup)
+  const handleClick = useCallback(() => {
+    setIsPinned(true);
+    clearCloseTimeout();
+    markerRef.current?.openPopup();
+  }, [clearCloseTimeout]);
+
+  // Handle popup close button click
+  const handleCloseClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPinned(false);
+    markerRef.current?.closePopup();
+  }, []);
+
+  // Handle popup mouse events
+  const handlePopupMouseEnter = useCallback(() => {
+    clearCloseTimeout();
+  }, [clearCloseTimeout]);
+
+  const handlePopupMouseLeave = useCallback(() => {
+    if (!isPinned) {
+      scheduleClose();
+    }
+  }, [isPinned, scheduleClose]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Marker
       ref={markerRef}
-      position={[group.lat, group.lon]}
+      position={adjustedPosition}
       icon={createStationIcon(selectionState, group.type)}
       eventHandlers={{
-        mouseover: () => {
-          markerRef.current?.openPopup();
-        },
+        mouseover: handleMouseOver,
+        mouseout: handleMouseOut,
+        click: handleClick,
       }}
     >
-      <Popup>
-        <div className="min-w-[200px] bg-gray-50 -m-[13px] -mt-[13px] p-3 rounded">
-          <div className="font-semibold text-gray-900">{group.name}</div>
+      <Popup
+        closeButton={false}
+        autoPan={false}
+      >
+        <div
+          className="min-w-[200px] bg-gray-50 -m-[13px] -mt-[13px] p-3 rounded"
+          onMouseEnter={handlePopupMouseEnter}
+          onMouseLeave={handlePopupMouseLeave}
+        >
+          {/* Close button - only show when pinned */}
+          {isPinned && (
+            <button
+              onClick={handleCloseClick}
+              className="absolute top-1 right-1 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
+              aria-label="Close"
+            >
+              <X size={14} />
+            </button>
+          )}
+
+          <div className="font-semibold text-gray-900 pr-6">{group.name}</div>
           {distance !== undefined && (
             <div className="text-xs text-gray-500 mt-0.5">
               {formatDistance(distance)}
@@ -316,6 +405,55 @@ export default function StopsMapView({
     return Object.values(groups);
   }, [stops]);
 
+  // Calculate adjusted positions to prevent overlapping markers
+  // At zoom level 13, roughly 0.0003 degrees ≈ 20 pixels (marker size is 18px)
+  // We want at least 1px spacing, so minimum separation is ~19px ≈ 0.00029 degrees
+  const adjustedPositions = useMemo(() => {
+    const MIN_SEPARATION = 0.00025; // Minimum lat/lon separation between markers
+    const positions: Record<string, [number, number]> = {};
+
+    // Sort groups to have consistent ordering
+    const sortedGroups = [...stationGroups].sort((a, b) =>
+      a.baseId.localeCompare(b.baseId)
+    );
+
+    for (const group of sortedGroups) {
+      let adjustedLat = group.lat;
+      let adjustedLon = group.lon;
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      // Check for collisions and adjust position
+      while (attempts < maxAttempts) {
+        let hasCollision = false;
+
+        for (const existingId of Object.keys(positions)) {
+          const [existingLat, existingLon] = positions[existingId];
+          const latDiff = Math.abs(adjustedLat - existingLat);
+          const lonDiff = Math.abs(adjustedLon - existingLon);
+
+          // Check if markers would overlap (using euclidean distance approximation)
+          if (latDiff < MIN_SEPARATION && lonDiff < MIN_SEPARATION) {
+            hasCollision = true;
+            // Offset in a spiral pattern
+            const angle = (attempts * 137.5 * Math.PI) / 180; // Golden angle for good distribution
+            const radius = MIN_SEPARATION * (1 + Math.floor(attempts / 8) * 0.5);
+            adjustedLat = group.lat + radius * Math.cos(angle);
+            adjustedLon = group.lon + radius * Math.sin(angle);
+            break;
+          }
+        }
+
+        if (!hasCollision) break;
+        attempts++;
+      }
+
+      positions[group.baseId] = [adjustedLat, adjustedLon];
+    }
+
+    return positions;
+  }, [stationGroups]);
+
   const handleMarkerDragEnd = (lat: number, lon: number) => {
     onSetManualLocation({ lat, lon });
   };
@@ -428,6 +566,7 @@ export default function StopsMapView({
             const distance = location
               ? calculateDistance(location.lat, location.lon, group.lat, group.lon)
               : undefined;
+            const adjustedPosition = adjustedPositions[group.baseId] || [group.lat, group.lon];
 
             return (
               <StationMarker
@@ -437,6 +576,7 @@ export default function StopsMapView({
                 distance={distance}
                 selectedStopIds={selectedStopIds}
                 onToggleStop={onToggleStop}
+                adjustedPosition={adjustedPosition}
               />
             );
           })}
