@@ -1,24 +1,39 @@
-bdfparser==2.2.0
-certifi==2025.11.12
-charset-normalizer==3.4.4
-flask==3.1.0
-flask-cors==5.0.0
-gtfs-realtime-bindings==2.0.0
-idna==3.11
-libsixel-python==0.5.0
-numpy==2.3.5
-opentelemetry-api==1.28.1
-opentelemetry-sdk==1.28.1
-opentelemetry-instrumentation==0.49b0
-opentelemetry-instrumentation-flask==0.49b0
-opentelemetry-instrumentation-requests==0.49b0
-opentelemetry-exporter-jaeger==1.28.1
-opentelemetry-exporter-otlp-proto-http==1.28.1
-pillow==12.0.0
-protobuf==6.33.2
-pygame==2.6.1
-requests==2.32.5
-RGBMatrixEmulator==0.14.1
-tornado==6.5.2
-urllib3==2.6.1
+# Core dependencies
+bdfparser>=2.2.0,<3.0.0
+certifi>=2025.11.12
+charset-normalizer>=3.4.4,<4.0.0
+flask>=3.1.2,<4.0.0
+flask-cors>=5.0.0,<6.0.0
+gtfs-realtime-bindings>=2.0.0,<3.0.0
+idna>=3.11,<4.0.0
+libsixel-python>=0.5.0,<1.0.0
+numpy>=2.3.5,<3.0.0
+pillow>=12.0.0,<13.0.0
+protobuf>=6.33.2,<7.0.0
+pygame>=2.6.1,<3.0.0
+requests>=2.32.5,<3.0.0
+# RGB Matrix - Use emulator for development, real hardware on Raspberry Pi
+RGBMatrixEmulator>=0.14.1,<1.0.0
+# Note: If installing on Raspberry Pi, you may also need:
+# - rpi-rgb-led-matrix (compiled from source, not a pip package)
+# - adafruit-blinka packages (optional, may fail on non-Pi systems)
+tornado>=6.5.2,<7.0.0
+urllib3>=2.6.1,<3.0.0
+
+
+# OpenTelemetry - Core packages (latest: 1.39.1)
+opentelemetry-api>=1.39.1,<2.0.0
+opentelemetry-sdk>=1.39.1,<2.0.0
+
+# OpenTelemetry - Instrumentation
+# Note: These packages auto-install their base dependencies
+opentelemetry-instrumentation-flask>=0.49b0,<1.0.0
+opentelemetry-instrumentation-requests>=0.49b0,<1.0.0
+
+# OpenTelemetry - Exporters
+# Note: opentelemetry-exporter-jaeger is deprecated but kept for compatibility
+# Consider migrating to OTLP exporter only
+opentelemetry-exporter-jaeger>=1.21.0,<2.0.0
+opentelemetry-exporter-otlp-proto-http>=1.39.1,<2.0.0
+deprecated>=1.2.14,<2.0.0  # Required by opentelemetry-exporter-jaeger
 

@@ -1,0 +1,10 @@
+# Raspberry Pi specific requirements
+# Install these only on Raspberry Pi hardware
+# Usage: pip install -r requirements-raspberrypi.txt
+
+# Include base requirements
+-r requirements.txt
+
+# Raspberry Pi hardware dependencies (optional, may fail on other platforms)
+# These are needed for actual hardware RGB matrix control
+# On macOS/development, use RGBMatrixEmulator instead

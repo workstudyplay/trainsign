@@ -10,6 +10,42 @@ Raspberry Pi - Runs python application
  * Adafruit RGB matrix hat for connecting daisy-chained RGB panels
  * React based web UI for control and configuration
 
+## Installation
+
+### Quick Start
+
+```bash
+# Install dependencies
+pip install -r src/requirements.txt
+
+# If you encounter build errors with adafruit packages on macOS/Linux, this is normal.
+# The emulator works fine without them. Use:
+pip install -r src/requirements.txt --no-build-isolation
+```
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions and troubleshooting.
+
+## Dependency Management
+
+This project uses version ranges in `requirements.txt` to allow automatic patch and minor version updates. For reproducible builds, you can use `requirements.in` with `pip-tools`:
+
+```bash
+# Install pip-tools
+pip install pip-tools
+
+# Generate pinned requirements.txt from requirements.in
+cd src
+pip-compile requirements.in --upgrade
+```
+
+Or use the update script:
+
+```bash
+./scripts/update-requirements.sh
+```
+
+Dependencies are automatically checked weekly via GitHub Actions and a PR is created if updates are available.
+
 ## Features
 
 ### Transit Support

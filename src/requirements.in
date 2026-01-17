@@ -1,0 +1,34 @@
+# requirements.in - Loose dependency specifications
+# Use pip-compile to generate requirements.txt with pinned versions
+# Run: pip-compile requirements.in --upgrade
+
+# Core dependencies
+bdfparser
+certifi
+charset-normalizer
+flask
+flask-cors
+gtfs-realtime-bindings
+idna
+libsixel-python
+numpy
+pillow
+protobuf
+pygame
+requests
+RGBMatrixEmulator
+tornado
+urllib3
+
+# OpenTelemetry - Core packages
+opentelemetry-api>=1.39.1
+opentelemetry-sdk>=1.39.1
+
+# OpenTelemetry - Instrumentation
+opentelemetry-instrumentation-flask>=0.49b0
+opentelemetry-instrumentation-requests>=0.49b0
+
+# OpenTelemetry - Exporters
+opentelemetry-exporter-jaeger>=1.21.0
+opentelemetry-exporter-otlp-proto-http>=1.39.1
+deprecated>=1.2.14  # Required by opentelemetry-exporter-jaeger

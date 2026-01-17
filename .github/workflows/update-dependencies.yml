@@ -1,0 +1,57 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    # Run weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  update-requirements:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install pip-tools
+        run: pip install pip-tools
+      
+      - name: Update requirements.txt
+        working-directory: ./src
+        run: |
+          if [ -f requirements.in ]; then
+            pip-compile requirements.in --upgrade --output-file requirements.txt
+          else
+            echo "requirements.in not found, skipping update"
+          fi
+      
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain src/requirements.txt)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Pull Request
+        if: steps.check-changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update dependencies to latest versions"
+          title: "chore: update dependencies to latest versions"
+          body: |
+            Automated dependency update
+            
+            This PR updates dependencies to their latest compatible versions.
+            
+            Please review and test before merging.
+          branch: update-dependencies
+          delete-branch: true
